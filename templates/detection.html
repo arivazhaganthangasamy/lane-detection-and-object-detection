@@ -1,0 +1,845 @@
+{% extends "base.html" %}
+{% block title %}Detection — LaneVision AI{% endblock %}
+
+{% block extra_styles %}
+
+/* ═══════════════ LAYOUT ═══════════════ */
+.dash-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
+/* ═══════════════ SIDEBAR ═══════════════ */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 1.4rem 1.2rem;
+  display: flex; flex-direction: column; gap: 1.1rem;
+  overflow-y: auto;
+}
+.sidebar-header { font-family: var(--font-head); font-size: 1rem; font-weight: 800; }
+.sidebar-sub { font-size: .76rem; color: var(--muted); margin-top: .15rem; }
+.divline { height: 1px; background: var(--border); }
+.sec-label {
+  font-size: .67rem; text-transform: uppercase; letter-spacing: .9px;
+  color: var(--muted); font-weight: 700; margin-bottom: .55rem;
+}
+
+/* Mode tabs */
+.mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+.mode-tab {
+  padding: .55rem; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer;
+  font-family: var(--font-head); font-size: .78rem; font-weight: 700;
+  text-align: center; transition: all .2s;
+}
+.mode-tab.active { background: rgba(0,200,255,.12); border-color: var(--accent); color: var(--accent); }
+.mode-tab:hover:not(.active) { color: var(--text); border-color: var(--muted); }
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px;
+  padding: 1.6rem 1rem; text-align: center;
+  cursor: pointer; transition: all .22s;
+  background: rgba(0,200,255,.02);
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent); background: rgba(0,200,255,.07);
+}
+.upload-icon { font-size: 1.8rem; margin-bottom: .5rem; }
+.upload-text { font-size: .8rem; color: var(--muted); line-height: 1.5; }
+.upload-text strong { color: var(--text); }
+.upload-accept { font-size: .67rem; color: var(--muted); margin-top: .4rem; opacity: .6; }
+
+/* File info row */
+.file-info {
+  background: var(--surface2); border-radius: 8px; padding: .8rem .9rem;
+  display: none; align-items: center; gap: .65rem;
+  border: 1px solid var(--border);
+}
+.file-info.show { display: flex; }
+.file-thumb {
+  width: 38px; height: 38px; border-radius: 6px; flex-shrink: 0;
+  background: rgba(0,200,255,.1); display: flex; align-items: center;
+  justify-content: center; font-size: 1.05rem;
+}
+.file-name { font-size: .8rem; font-weight: 600; word-break: break-all; line-height: 1.3; }
+.file-size { font-size: .68rem; color: var(--muted); margin-top: .1rem; }
+.file-change {
+  margin-left: auto; font-size: .68rem; color: var(--accent);
+  cursor: pointer; white-space: nowrap; flex-shrink: 0; font-weight: 700;
+}
+.file-change:hover { text-decoration: underline; }
+
+/* Upload progress */
+.progress-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-top: .4rem; display: none; }
+.progress-bar  { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; width: 0%; transition: width .3s; }
+
+/* Confidence */
+.conf-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+.conf-label-txt { font-size: .73rem; color: var(--muted); font-weight: 600; }
+.conf-val { font-size: .85rem; font-weight: 800; color: var(--accent); font-family: var(--font-head); }
+input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+/* Buttons */
+.btn-full { width: 100%; justify-content: center; }
+.btn-sm   { padding: .5rem 1rem; font-size: .78rem; }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.stat-box { background: var(--surface2); border-radius: 8px; padding: .8rem; text-align: center; }
+.stat-box-val { font-family: var(--font-head); font-size: 1.3rem; font-weight: 800; color: var(--accent); }
+.stat-box-val.danger { color: var(--danger); }
+.stat-box-val.green  { color: var(--accent2); }
+.stat-box-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: .15rem; }
+
+/* Log */
+.log-box {
+  background: var(--surface2); border-radius: 8px;
+  padding: .65rem .8rem; font-size: .68rem; font-family: monospace;
+  color: var(--muted); height: 110px; overflow-y: auto;
+  border: 1px solid var(--border); line-height: 1.75;
+}
+.log-entry.warn { color: var(--danger); }
+.log-entry.ok   { color: var(--accent2); }
+.log-entry.info { color: var(--accent); }
+
+/* ═══════════════ MAIN AREA ═══════════════ */
+.main-area {
+  display: flex; flex-direction: column;
+  background: #020609; overflow: hidden;
+}
+
+/* Toolbar */
+.canvas-toolbar {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .75rem 1.4rem; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,10,15,.98);
+}
+.toolbar-title { font-family: var(--font-head); font-weight: 700; font-size: .88rem; }
+.toolbar-badge {
+  font-size: .62rem; padding: .2rem .65rem; border-radius: 20px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+}
+.badge-idle    { background: rgba(93,122,138,.12);  color: var(--muted);   border: 1px solid rgba(93,122,138,.18); }
+.badge-preview { background: rgba(255,181,71,.10);  color: var(--warning); border: 1px solid rgba(255,181,71,.2); }
+.badge-running { background: rgba(0,255,157,.10);   color: var(--accent2); border: 1px solid rgba(0,255,157,.2); }
+.badge-done    { background: rgba(0,200,255,.10);   color: var(--accent);  border: 1px solid rgba(0,200,255,.2); }
+.badge-alert   { background: rgba(255,59,92,.14);   color: var(--danger);  border: 1px solid rgba(255,59,92,.24); }
+
+/* View toggle buttons */
+.view-btns { display: flex; gap: .35rem; }
+.view-btn {
+  padding: .28rem .65rem; border-radius: 4px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-size: .68rem; font-weight: 700;
+  cursor: pointer; transition: all .2s; font-family: var(--font-head);
+}
+.view-btn.active { background: rgba(0,200,255,.12); border-color: var(--accent); color: var(--accent); }
+.view-btn:hover:not(.active) { color: var(--text); }
+
+/* Status */
+.status-pill {
+  margin-left: auto; display: flex; align-items: center; gap: .45rem;
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.status-dot.on    { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: blink 1.5s ease-in-out infinite; }
+.status-dot.alert { background: var(--danger);  box-shadow: 0 0 8px var(--danger);  animation: blink .5s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+.status-label { font-size: .7rem; color: var(--muted); }
+
+/* ═══════════════ PANEL SYSTEM ═══════════════ */
+.canvas-body { flex: 1; position: relative; overflow: hidden; }
+
+.panel {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem 1.2rem;
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s;
+}
+.panel.active { opacity: 1; pointer-events: all; }
+
+/* Placeholder */
+.placeholder-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: .8rem; text-align: center; max-width: 320px; color: var(--muted);
+}
+.placeholder-wrap .icon { font-size: 3.5rem; opacity: .2; }
+.placeholder-wrap h3 { font-family: var(--font-head); font-size: 1rem; font-weight: 700; color: var(--text); }
+.placeholder-wrap p  { font-size: .8rem; line-height: 1.7; }
+
+/* ── ORIGINAL panel ── */
+#panelOriginal { flex-direction: column; padding: .8rem 1rem; gap: .6rem; align-items: stretch; }
+
+.video-wrapper {
+  flex: 1; min-height: 0;
+  display: none; flex-direction: column; gap: .5rem;
+}
+.video-wrapper.show { display: flex; }
+
+.video-label {
+  font-size: .65rem; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--muted); font-weight: 700; text-align: center; flex-shrink: 0;
+}
+
+#videoPreview {
+  flex: 1; width: 100%; min-height: 0;
+  border-radius: 8px; border: 1px solid rgba(0,200,255,.18);
+  background: #000; object-fit: contain;
+  display: none;
+}
+#videoPreview.show { display: block; }
+
+#imagePreview {
+  flex: 1; max-width: 100%; min-height: 0;
+  border-radius: 8px; border: 1px solid rgba(0,200,255,.18);
+  object-fit: contain; display: none;
+}
+#imagePreview.show { display: block; }
+
+/* Meta bar */
+.video-meta {
+  display: none; align-items: center; gap: .8rem; flex-wrap: wrap;
+  padding: .45rem .85rem;
+  background: var(--surface2); border-radius: 6px;
+  border: 1px solid var(--border); flex-shrink: 0;
+}
+.video-meta.show { display: flex; }
+.vmeta-item { display: flex; align-items: center; gap: .3rem; font-size: .7rem; color: var(--muted); }
+.vmeta-item strong { color: var(--text); font-weight: 700; }
+.vmeta-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+
+/* ── PROCESSED panel ── */
+#panelProcessed { flex-direction: column; gap: .6rem; padding: .8rem 1rem; align-items: stretch; }
+.processed-wrapper {
+  flex: 1; min-height: 0; display: flex;
+  align-items: center; justify-content: center;
+}
+#processedStream {
+  max-width: 100%; max-height: 100%; width: 100%;
+  border-radius: 8px; border: 1px solid rgba(0,255,157,.18);
+  background: #000; object-fit: contain; display: none;
+}
+#imageResult {
+  max-width: 100%; max-height: 100%;
+  border-radius: 8px; border: 1px solid rgba(0,255,157,.18);
+  object-fit: contain; display: none;
+}
+
+/* ── SPLIT panel ── */
+#panelSplit { gap: .75rem; align-items: stretch; }
+.split-half {
+  flex: 1; display: flex; flex-direction: column;
+  gap: .4rem; min-width: 0;
+}
+.split-label {
+  font-size: .63rem; text-transform: uppercase; letter-spacing: .7px;
+  color: var(--muted); font-weight: 700; text-align: center; flex-shrink: 0;
+}
+.split-half video, .split-half img {
+  flex: 1; min-height: 0; width: 100%;
+  border-radius: 6px; border: 1px solid var(--border);
+  background: #000; object-fit: contain;
+}
+.split-placeholder {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 1rem;
+  color: var(--muted); font-size: .78rem;
+  background: rgba(0,200,255,.02);
+  border: 1px dashed var(--border); border-radius: 6px;
+}
+
+/* Floating alert overlay */
+.overlay-alert {
+  position: absolute; top: 1.3rem; left: 50%; transform: translateX(-50%);
+  background: rgba(255,59,92,.92); color: #fff;
+  padding: .45rem 1.4rem; border-radius: 6px;
+  font-family: var(--font-head); font-weight: 700; font-size: .9rem;
+  display: none; white-space: nowrap; z-index: 50;
+  box-shadow: 0 4px 20px rgba(255,59,92,.5);
+  animation: slideDown .3s ease;
+}
+@keyframes slideDown {
+  from { transform: translateX(-50%) translateY(-8px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="dash-layout">
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar">
+
+    <div>
+      <div class="sidebar-header">Detection Dashboard</div>
+      <div class="sidebar-sub">Logged in as <strong>{{ user }}</strong></div>
+    </div>
+
+    <div class="divline"></div>
+
+    <!-- Mode -->
+    <div>
+      <div class="sec-label">Input Mode</div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" onclick="setMode('video',this)">🎬 Video</button>
+        <button class="mode-tab"        onclick="setMode('image',this)">🖼 Image</button>
+      </div>
+    </div>
+
+    <!-- Upload -->
+    <div>
+      <div class="sec-label">Upload File</div>
+      <div class="upload-zone" id="uploadZone"
+           onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📂</div>
+        <div class="upload-text"><strong>Click to browse</strong><br>or drag &amp; drop</div>
+        <div class="upload-accept" id="acceptHint">MP4 · AVI · MOV · MKV</div>
+      </div>
+      <input type="file" id="fileInput" style="display:none"
+             accept="video/*" onchange="handleFile(this.files[0])">
+
+      <div class="file-info" id="fileInfo">
+        <div class="file-thumb" id="fileThumb">🎬</div>
+        <div style="flex:1;min-width:0">
+          <div class="file-name" id="fileName">—</div>
+          <div class="file-size" id="fileSize">—</div>
+        </div>
+        <span class="file-change" onclick="document.getElementById('fileInput').click()">Change</span>
+      </div>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- Confidence -->
+    <div>
+      <div class="conf-row">
+        <div class="conf-label-txt">Confidence Threshold</div>
+        <div class="conf-val" id="confVal">0.40</div>
+      </div>
+      <input type="range" min="1" max="99" value="40" id="confSlider"
+             oninput="document.getElementById('confVal').textContent=(this.value/100).toFixed(2)">
+    </div>
+
+    <!-- Buttons -->
+    <button class="btn btn-primary btn-full" id="runBtn" onclick="runDetection()" disabled>
+      ▶&nbsp; Run Detection
+    </button>
+    <button class="btn btn-outline btn-full btn-sm" id="stopBtn" onclick="stopDetection()" style="display:none">
+      ⏹&nbsp; Stop
+    </button>
+    <button class="btn btn-outline btn-full btn-sm" id="resetBtn" onclick="resetAll()" style="display:none">
+      ↺&nbsp; Upload New File
+    </button>
+
+    <div class="divline"></div>
+
+    <!-- Stats -->
+    <div>
+      <div class="sec-label">Session Stats</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-box-val"        id="statFrames">0</div>
+          <div class="stat-box-label">Frames</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val danger" id="statAlerts">0</div>
+          <div class="stat-box-label">Alerts</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val green"  id="statFps">—</div>
+          <div class="stat-box-label">FPS</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val" id="statStatus" style="font-size:.85rem">Idle</div>
+          <div class="stat-box-label">Status</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div>
+      <div class="sec-label">Event Log</div>
+      <div class="log-box" id="logBox">
+        <div class="log-entry info">[system] LaneVision ready.</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ══════════ MAIN AREA ══════════ -->
+  <main class="main-area">
+
+    <!-- Toolbar -->
+    <div class="canvas-toolbar">
+      <div class="toolbar-title">Preview</div>
+      <span class="toolbar-badge badge-idle" id="modeBadge">Idle</span>
+
+      <div class="view-btns" id="viewBtns" style="display:none">
+        <button class="view-btn active" id="vbOriginal"  onclick="switchView('original')">Original</button>
+        <button class="view-btn"        id="vbProcessed" onclick="switchView('processed')">Processed</button>
+        <button class="view-btn"        id="vbSplit"     onclick="switchView('split')">Split</button>
+      </div>
+
+      <div class="status-pill">
+        <span class="status-label" id="statusLabel">Idle</span>
+        <div class="status-dot" id="statusDot"></div>
+      </div>
+    </div>
+
+    <!-- Canvas body -->
+    <div class="canvas-body">
+
+      <!-- Alert overlay (floats above all panels) -->
+      <div class="overlay-alert" id="overlayAlert">⚠&nbsp; LANE CROSSING ALERT!</div>
+
+      <!-- ── PANEL: Original ── -->
+      <div class="panel active" id="panelOriginal">
+
+        <!-- Empty state shown before any upload -->
+        <div class="placeholder-wrap" id="placeholder">
+          <div class="icon">🛣</div>
+          <h3>No media loaded</h3>
+          <p>Upload a video or image from the sidebar — it will appear here instantly so you can preview it before running detection.</p>
+        </div>
+
+        <!-- Video/image wrapper — hidden until file loaded -->
+        <div class="video-wrapper" id="videoWrapper">
+          <div class="video-label" id="videoLabel">Original — ready for detection</div>
+
+          <!-- HTML5 native video player -->
+          <video id="videoPreview" controls playsinline preload="metadata">
+            Your browser does not support HTML5 video.
+          </video>
+
+          <!-- Image preview -->
+          <img id="imagePreview" alt="Image preview">
+
+          <!-- Metadata bar below player -->
+          <div class="video-meta" id="videoMeta">
+            <div class="vmeta-item">📁 <strong id="metaName">—</strong></div>
+            <div class="vmeta-dot"></div>
+            <div class="vmeta-item">💾 <strong id="metaSize">—</strong></div>
+            <div class="vmeta-dot"></div>
+            <div class="vmeta-item" id="metaDurWrap">⏱ <strong id="metaDur">—</strong></div>
+            <div class="vmeta-dot"></div>
+            <div class="vmeta-item">📐 <strong id="metaRes">—</strong></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── PANEL: Processed ── -->
+      <div class="panel" id="panelProcessed">
+        <div class="processed-wrapper">
+          <div class="placeholder-wrap" id="processedPlaceholder">
+            <div class="icon">🎯</div>
+            <h3>Not yet processed</h3>
+            <p>Click <em>Run Detection</em> to process the file. Lane lines and bounding boxes will appear here.</p>
+          </div>
+          <img id="processedStream" alt="Processed video stream">
+          <img id="imageResult"     alt="Processed image">
+        </div>
+      </div>
+
+      <!-- ── PANEL: Split ── -->
+      <div class="panel" id="panelSplit">
+        <div class="split-half">
+          <div class="split-label">Original</div>
+          <video id="splitVideo" controls muted playsinline preload="metadata"></video>
+          <img   id="splitImage" style="display:none" alt="original">
+        </div>
+        <div class="split-half">
+          <div class="split-label">Processed</div>
+          <img id="splitProcessed" style="display:none" alt="processed">
+          <div id="splitWaiting" class="split-placeholder">
+            Run detection to see processed output here
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ══ STATE ══ */
+let currentMode  = 'video';
+let uploadedFile = null;
+let uploadedName = null;
+let running      = false;
+let previewURL   = null;
+let frameCount   = 0;
+let alertCount   = 0;
+let fpsTimer     = null;
+let fpsFrames    = 0;
+let fpsStart     = null;
+
+/* ══ MODE SWITCH ══ */
+function setMode(mode, el) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('fileInput').accept =
+    mode === 'video' ? 'video/*' : 'image/*';
+  document.getElementById('acceptHint').textContent =
+    mode === 'video' ? 'MP4 · AVI · MOV · MKV' : 'JPG · JPEG · PNG';
+  resetAll();
+  log('info', `Mode → ${mode}`);
+}
+
+/* ══ DRAG & DROP ══ */
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+/* ══ HANDLE FILE — shows video immediately on upload ══ */
+function handleFile(file) {
+  if (!file) return;
+
+  // Free old blob URL
+  if (previewURL) { URL.revokeObjectURL(previewURL); previewURL = null; }
+
+  uploadedFile = file;
+  uploadedName = null;
+
+  // Sidebar
+  document.getElementById('fileName').textContent  = file.name;
+  document.getElementById('fileSize').textContent  = formatBytes(file.size);
+  document.getElementById('fileThumb').textContent = currentMode === 'video' ? '🎬' : '🖼';
+  document.getElementById('fileInfo').classList.add('show');
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('resetBtn').style.display = '';
+  document.getElementById('viewBtns').style.display  = 'flex';
+
+  // Build blob URL — no server needed for preview
+  previewURL = URL.createObjectURL(file);
+
+  // Switch to Original panel
+  switchView('original');
+
+  // Hide placeholder, show media wrapper
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('videoWrapper').classList.add('show');
+
+  // Populate meta bar
+  document.getElementById('metaName').textContent = file.name.length > 24
+    ? file.name.slice(0, 22) + '…' : file.name;
+  document.getElementById('metaSize').textContent = formatBytes(file.size);
+
+  if (currentMode === 'video') {
+    /* ─── Show native video player instantly ─── */
+    const vp = document.getElementById('videoPreview');
+    vp.src = previewURL;
+    vp.classList.add('show');
+    vp.load();
+
+    // Populate duration & resolution once metadata is ready
+    vp.onloadedmetadata = () => {
+      document.getElementById('metaDur').textContent = formatDur(vp.duration);
+      document.getElementById('metaRes').textContent = `${vp.videoWidth}×${vp.videoHeight}`;
+      document.getElementById('metaDurWrap').style.display = 'flex';
+    };
+
+    document.getElementById('imagePreview').classList.remove('show');
+    document.getElementById('imagePreview').src = '';
+    document.getElementById('videoMeta').classList.add('show');
+    document.getElementById('videoLabel').textContent = 'Original — use controls to preview, then click Run Detection';
+
+    // Sync split original panel
+    const sv = document.getElementById('splitVideo');
+    sv.src = previewURL;
+    sv.style.display = 'block';
+    document.getElementById('splitImage').style.display = 'none';
+
+    log('ok', `Video ready: ${file.name} (${formatBytes(file.size)})`);
+
+  } else {
+    /* ─── Show image preview ─── */
+    const ip = document.getElementById('imagePreview');
+    ip.src = previewURL;
+    ip.classList.add('show');
+
+    ip.onload = () => {
+      document.getElementById('metaRes').textContent = `${ip.naturalWidth}×${ip.naturalHeight}`;
+    };
+
+    document.getElementById('videoPreview').classList.remove('show');
+    document.getElementById('videoPreview').src = '';
+    document.getElementById('videoMeta').classList.add('show');
+    document.getElementById('metaDurWrap').style.display = 'none';
+    document.getElementById('videoLabel').textContent = 'Original — click Run Detection to process';
+
+    // Sync split
+    document.getElementById('splitImage').src = previewURL;
+    document.getElementById('splitImage').style.display = 'block';
+    document.getElementById('splitVideo').style.display = 'none';
+
+    log('ok', `Image ready: ${file.name}`);
+  }
+
+  // Reset processed panel
+  document.getElementById('processedPlaceholder').style.display = 'flex';
+  document.getElementById('processedStream').style.display = 'none';
+  document.getElementById('processedStream').src = '';
+  document.getElementById('imageResult').style.display = 'none';
+  document.getElementById('imageResult').src = '';
+  document.getElementById('splitProcessed').style.display = 'none';
+  document.getElementById('splitProcessed').src = '';
+  document.getElementById('splitWaiting').style.display = 'flex';
+
+  setModeBadge('preview', 'Preview');
+  setStatus('Ready', '');
+}
+
+/* ══ VIEW SWITCHER ══ */
+function switchView(view) {
+  ['original','processed','split'].forEach(v => {
+    const key   = v.charAt(0).toUpperCase() + v.slice(1);
+    const panel = document.getElementById('panel' + key);
+    const btn   = document.getElementById('vb'    + key);
+    if (panel) panel.classList.toggle('active', v === view);
+    if (btn)   btn.classList.toggle('active',   v === view);
+  });
+}
+
+/* ══ RUN DETECTION ══ */
+async function runDetection() {
+  if (!uploadedFile || running) return;
+
+  // Upload to server once per file
+  if (!uploadedName) {
+    const fd = new FormData();
+    fd.append('file', uploadedFile);
+    setStatus('Uploading…', '');
+    setModeBadge('idle', 'Uploading…');
+    showProgress(true);
+    try {
+      const res  = await fetch('/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      showProgress(false);
+      if (!res.ok || data.error) {
+        log('warn', 'Upload failed: ' + (data.error || '?'));
+        setStatus('Error', ''); return;
+      }
+      uploadedName = data.filename;
+      log('ok', `Uploaded → server: ${uploadedName}`);
+    } catch (e) {
+      showProgress(false);
+      log('warn', 'Upload error.'); setStatus('Error', ''); return;
+    }
+  }
+
+  currentMode === 'video' ? startVideoStream(uploadedName) : processImage();
+}
+
+/* ══ VIDEO STREAM ══ */
+function startVideoStream(filename) {
+  running = true;
+  document.getElementById('runBtn').style.display  = 'none';
+  document.getElementById('stopBtn').style.display = '';
+  setModeBadge('running', 'Processing');
+  setStatus('Running', 'on');
+
+  switchView('processed');
+  document.getElementById('processedPlaceholder').style.display = 'none';
+
+  const stream = document.getElementById('processedStream');
+  stream.src   = `/process_video/${filename}?t=${Date.now()}`;
+  stream.style.display = 'block';
+
+  const sp = document.getElementById('splitProcessed');
+  sp.src   = stream.src;
+  sp.style.display = 'block';
+  document.getElementById('splitWaiting').style.display = 'none';
+
+  frameCount = 0; fpsFrames = 0; fpsStart = Date.now();
+  fpsTimer = setInterval(() => {
+    const elapsed = (Date.now() - fpsStart) / 1000;
+    if (elapsed > 0)
+      document.getElementById('statFps').textContent = Math.round(fpsFrames / elapsed);
+    fpsFrames = 0; fpsStart = Date.now();
+  }, 1000);
+
+  stream.onload  = () => {
+    frameCount++; fpsFrames++;
+    document.getElementById('statFrames').textContent = frameCount;
+  };
+  stream.onerror = () => {
+    log('info', 'Stream ended.');
+    stopDetection();
+    setModeBadge('done', 'Done');
+  };
+  log('info', 'Detection stream started.');
+}
+
+/* ══ IMAGE PROCESS ══ */
+async function processImage() {
+  const fd = new FormData();
+  fd.append('file', uploadedFile);
+  setModeBadge('running', 'Processing');
+  setStatus('Processing…', 'on');
+  document.getElementById('runBtn').disabled = true;
+
+  try {
+    const res  = await fetch('/process_image', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) {
+      log('warn', data.error); setStatus('Error', '');
+      document.getElementById('runBtn').disabled = false; return;
+    }
+
+    const src = `data:image/jpeg;base64,${data.image}`;
+    document.getElementById('processedPlaceholder').style.display = 'none';
+    const ir = document.getElementById('imageResult');
+    ir.src = src; ir.style.display = 'block';
+
+    const sp = document.getElementById('splitProcessed');
+    sp.src = src; sp.style.display = 'block';
+    document.getElementById('splitWaiting').style.display = 'none';
+
+    document.getElementById('statFrames').textContent = 1;
+    switchView('processed');
+
+    if (data.alert) {
+      showAlertOverlay();
+      setModeBadge('alert', 'Alert!');
+      log('warn', '⚠ LANE CROSSING ALERT detected!');
+    } else {
+      setModeBadge('done', 'Done');
+      log('ok', 'Image processed — no violations.');
+    }
+    setStatus('Done', 'on');
+    document.getElementById('runBtn').disabled = false;
+
+  } catch (e) {
+    log('warn', 'Processing failed.'); setStatus('Error', '');
+    document.getElementById('runBtn').disabled = false;
+  }
+}
+
+/* ══ STOP ══ */
+function stopDetection() {
+  running = false;
+  clearInterval(fpsTimer);
+  const s = document.getElementById('processedStream');
+  s.src = ''; s.style.display = 'none';
+  document.getElementById('runBtn').style.display  = '';
+  document.getElementById('stopBtn').style.display = 'none';
+  setStatus('Stopped', ''); setModeBadge('idle', 'Stopped');
+  log('info', 'Detection stopped.');
+}
+
+/* ══ RESET ══ */
+function resetAll() {
+  stopDetection();
+  if (previewURL) { URL.revokeObjectURL(previewURL); previewURL = null; }
+  uploadedFile = null; uploadedName = null;
+  frameCount = 0; alertCount = 0;
+
+  document.getElementById('fileInfo').classList.remove('show');
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('resetBtn').style.display = 'none';
+  document.getElementById('viewBtns').style.display  = 'none';
+  ['statFrames','statAlerts'].forEach(id => document.getElementById(id).textContent = '0');
+  document.getElementById('statFps').textContent = '—';
+  document.getElementById('videoMeta').classList.remove('show');
+
+  document.getElementById('placeholder').style.display = 'flex';
+  document.getElementById('videoWrapper').classList.remove('show');
+
+  const vp = document.getElementById('videoPreview');
+  vp.src = ''; vp.classList.remove('show');
+  const ip = document.getElementById('imagePreview');
+  ip.src = ''; ip.classList.remove('show');
+
+  document.getElementById('processedPlaceholder').style.display = 'flex';
+  document.getElementById('processedStream').src = '';
+  document.getElementById('processedStream').style.display = 'none';
+  document.getElementById('imageResult').src = '';
+  document.getElementById('imageResult').style.display = 'none';
+
+  document.getElementById('splitVideo').src = '';
+  document.getElementById('splitImage').src = '';
+  document.getElementById('splitImage').style.display = 'none';
+  document.getElementById('splitProcessed').src = '';
+  document.getElementById('splitProcessed').style.display = 'none';
+  document.getElementById('splitWaiting').style.display = 'flex';
+
+  switchView('original');
+  setStatus('Idle', ''); setModeBadge('idle', 'Idle');
+  log('info', 'Reset — ready for new file.');
+}
+
+/* ══ ALERT OVERLAY ══ */
+function showAlertOverlay() {
+  alertCount++;
+  document.getElementById('statAlerts').textContent = alertCount;
+  const el = document.getElementById('overlayAlert');
+  el.style.display = 'block';
+  document.getElementById('statusDot').className = 'status-dot alert';
+  setTimeout(() => {
+    el.style.display = 'none';
+    if (running) document.getElementById('statusDot').className = 'status-dot on';
+  }, 3000);
+}
+
+/* ══ HELPERS ══ */
+function setStatus(label, dot) {
+  document.getElementById('statusLabel').textContent = label;
+  document.getElementById('statStatus').textContent  = label;
+  document.getElementById('statusDot').className     = 'status-dot' + (dot ? ' '+dot : '');
+}
+function setModeBadge(type, text) {
+  const b = document.getElementById('modeBadge');
+  b.className = `toolbar-badge badge-${type}`;
+  b.textContent = text;
+}
+function log(type, msg) {
+  const box = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className   = `log-entry ${type}`;
+  div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  box.appendChild(div); box.scrollTop = box.scrollHeight;
+}
+function formatBytes(b) {
+  if (b < 1024)    return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+function formatDur(s) {
+  if (!s || !isFinite(s)) return '—';
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+function showProgress(show) {
+  document.getElementById('progressWrap').style.display = show ? 'block' : 'none';
+  if (show) {
+    let w = 0;
+    const t = setInterval(() => {
+      w = Math.min(w + Math.random()*14, 90);
+      document.getElementById('progressBar').style.width = w + '%';
+      if (w >= 90) clearInterval(t);
+    }, 150);
+  } else {
+    document.getElementById('progressBar').style.width = '100%';
+    setTimeout(() => {
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressWrap').style.display = 'none';
+    }, 400);
+  }
+}
+</script>
+{% endblock %}
