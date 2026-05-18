@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}LaneVision AI{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #050a0f;
+      --surface:  #0b1520;
+      --surface2: #0f1e2e;
+      --border:   rgba(0,200,255,0.12);
+      --accent:   #00c8ff;
+      --accent2:  #00ff9d;
+      --danger:   #ff3b5c;
+      --warning:  #ffb547;
+      --text:     #e8f4fb;
+      --muted:    #5d7a8a;
+      --font-head: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --glow:     0 0 40px rgba(0,200,255,0.15);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,200,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 3rem;
+      height: 64px;
+      background: rgba(5,10,15,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--font-head);
+      font-size: 1.3rem; font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+      text-decoration: none;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .nav-logo span { color: var(--accent2); }
+    .nav-links { display: flex; gap: 2rem; align-items: center; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none;
+      font-size: .85rem; font-weight: 500; letter-spacing: .5px;
+      text-transform: uppercase;
+      transition: color .2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--accent); }
+    .nav-links a.btn-nav {
+      background: var(--accent); color: var(--bg);
+      padding: .4rem 1.2rem; border-radius: 4px;
+      font-weight: 700;
+    }
+    .nav-links a.btn-nav:hover { background: var(--accent2); color: var(--bg); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .75rem 2rem; border-radius: 6px; border: none; cursor: pointer;
+      font-family: var(--font-head); font-size: .9rem; font-weight: 700;
+      letter-spacing: .5px; text-decoration: none;
+      transition: all .25s; position: relative; overflow: hidden;
+    }
+    .btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(255,255,255,0.08);
+      opacity: 0; transition: opacity .2s;
+    }
+    .btn:hover::after { opacity: 1; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #0080ff 100%);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(0,200,255,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,200,255,0.5); }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .btn-outline:hover { background: rgba(0,200,255,0.08); }
+    .btn-danger {
+      background: linear-gradient(135deg, var(--danger), #a0001e);
+      color: #fff;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: var(--glow);
+    }
+
+    /* ── FORM ── */
+    .form-group { margin-bottom: 1.4rem; }
+    .form-group label {
+      display: block; margin-bottom: .5rem;
+      font-size: .78rem; font-weight: 600;
+      letter-spacing: .8px; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .form-group input {
+      width: 100%; padding: .85rem 1.1rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-body); font-size: .95rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .form-group input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,200,255,0.12);
+    }
+    .form-group input::placeholder { color: var(--muted); }
+
+    /* ── ALERTS ── */
+    .alert {
+      padding: .9rem 1.2rem; border-radius: 6px;
+      font-size: .88rem; margin-bottom: 1.4rem;
+      display: flex; align-items: center; gap: .6rem;
+    }
+    .alert-danger { background: rgba(255,59,92,0.1); border: 1px solid rgba(255,59,92,0.3); color: #ff6b86; }
+    .alert-success { background: rgba(0,255,157,0.08); border: 1px solid rgba(0,255,157,0.25); color: var(--accent2); }
+
+    /* ── MISC ── */
+    .page { position: relative; z-index: 1; }
+    .tag {
+      display: inline-block; padding: .2rem .75rem;
+      background: rgba(0,200,255,0.1); border: 1px solid rgba(0,200,255,0.2);
+      border-radius: 20px; font-size: .72rem; font-weight: 600;
+      letter-spacing: .8px; text-transform: uppercase; color: var(--accent);
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+    {% block extra_styles %}{% endblock %}
+  </style>
+</head>
+<body>
+  {% if show_nav != false %}
+  <nav>
+    <a class="nav-logo" href="{{ url_for('about') }}">Lane<span>Vision</span></a>
+    <div class="nav-links">
+      <a href="{{ url_for('about') }}" {% if request.endpoint=='about' %}class="active"{% endif %}>About</a>
+      {% if user %}
+        <a href="{{ url_for('detection') }}" {% if request.endpoint=='detection' %}class="active"{% endif %}>Detection</a>
+        <a href="{{ url_for('logout') }}">Logout ({{ user }})</a>
+      {% else %}
+        <a href="{{ url_for('login') }}" {% if request.endpoint=='login' %}class="active"{% endif %}>Login</a>
+        <a href="{{ url_for('signup') }}" class="btn-nav">Get Started</a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+
+  <div class="page">
+    {% block content %}{% endblock %}
+  </div>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,609 @@
+{% extends "base.html" %}
+{% block title %}Detection — LaneVision AI{% endblock %}
+
+{% block extra_styles %}
+.dash-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: calc(100vh - 64px);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 2rem 1.5rem;
+  display: flex; flex-direction: column; gap: 1.5rem;
+  overflow-y: auto;
+}
+.sidebar-header { font-family: var(--font-head); font-size: 1rem; font-weight: 700; margin-bottom: .25rem; }
+.sidebar-sub { font-size: .78rem; color: var(--muted); }
+
+.mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.mode-tab {
+  padding: .7rem; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer;
+  font-family: var(--font-head); font-size: .8rem; font-weight: 700;
+  text-align: center; transition: all .2s;
+}
+.mode-tab.active {
+  background: rgba(0,200,255,.12); border-color: var(--accent); color: var(--accent);
+}
+.mode-tab:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px;
+  padding: 2rem 1rem; text-align: center;
+  cursor: pointer; transition: all .2s;
+  background: rgba(0,200,255,.02);
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(0,200,255,.06);
+}
+.upload-icon { font-size: 2rem; margin-bottom: .7rem; }
+.upload-text { font-size: .82rem; color: var(--muted); line-height: 1.5; }
+.upload-text strong { color: var(--text); }
+.upload-accept { font-size: .7rem; color: var(--muted); margin-top: .4rem; opacity: .7; }
+
+.file-info {
+  background: var(--surface2); border-radius: 8px; padding: 1rem;
+  display: none; align-items: center; gap: .75rem;
+}
+.file-info.show { display: flex; }
+.file-thumb {
+  width: 44px; height: 44px; border-radius: 6px;
+  background: rgba(0,200,255,.1); display: flex; align-items: center; justify-content: center; flex-shrink:0;
+  font-size: 1.2rem;
+}
+.file-name { font-size: .82rem; font-weight: 600; word-break: break-all; }
+.file-size { font-size: .72rem; color: var(--muted); }
+
+.conf-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+.conf-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 600; }
+.conf-val { font-size: .85rem; font-weight: 700; color: var(--accent); font-family: var(--font-head); }
+input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.stat-box { background: var(--surface2); border-radius: 8px; padding: 1rem; text-align: center; }
+.stat-box-val { font-family: var(--font-head); font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+.stat-box-val.danger { color: var(--danger); }
+.stat-box-val.green { color: var(--accent2); }
+.stat-box-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: .2rem; }
+
+.log-box {
+  background: var(--surface2); border-radius: 8px;
+  padding: .8rem; font-size: .72rem; font-family: monospace;
+  color: var(--muted); height: 130px; overflow-y: auto;
+  border: 1px solid var(--border); line-height: 1.7;
+}
+.log-entry.warn { color: var(--danger); }
+.log-entry.ok   { color: var(--accent2); }
+.log-entry.info { color: var(--accent); }
+
+.btn-full { width: 100%; justify-content: center; }
+.btn-sm { padding: .5rem 1rem; font-size: .8rem; }
+
+/* ── Main Canvas ── */
+.main-canvas {
+  display: flex; flex-direction: column;
+  background: #020609;
+  overflow: hidden;
+}
+.canvas-toolbar {
+  display: flex; align-items: center; gap: 1rem; padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,10,15,.9);
+  flex-shrink: 0;
+}
+.toolbar-title { font-family: var(--font-head); font-weight: 700; font-size: .9rem; }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted); transition: background .3s;
+}
+.status-dot.active { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: blink 1.5s ease-in-out infinite; }
+.status-dot.alert  { background: var(--danger); box-shadow: 0 0 8px var(--danger); animation: blink .5s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.status-label { font-size: .75rem; color: var(--muted); }
+
+/* ── Video area ── */
+.video-pane-wrapper {
+  flex: 1;
+  display: flex; flex-direction: column;
+  min-height: 0;
+  padding: 1.25rem 1.5rem;
+  gap: .85rem;
+}
+
+.pane-labels {
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.pane-labels.show { display: grid; }
+.pane-label {
+  display: flex; align-items: center; gap: .5rem;
+  font-family: var(--font-head); font-size: .75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .7px; color: var(--muted);
+}
+.pane-label .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.pane-label.original .dot { background: var(--warning); }
+.pane-label.processed .dot { background: var(--accent2); }
+
+.dual-pane {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  min-height: 0;
+}
+.dual-pane.image-mode {
+  grid-template-columns: 1fr;
+}
+.dual-pane.image-mode .panel-original { display: none; }
+
+.video-panel {
+  background: #010507;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  min-height: 200px; flex-direction: column;
+}
+
+/* Original <video> element */
+#originalVideo {
+  width: 100%; flex: 1;
+  object-fit: contain;
+  display: none;
+  border-radius: 9px 9px 0 0;
+}
+
+/* Processed stream / image */
+#videoStream, #imageResult {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: none;
+  border-radius: 9px;
+}
+
+.panel-placeholder {
+  display: flex; flex-direction: column; align-items: center; gap: .75rem;
+  color: var(--muted); text-align: center; padding: 1.5rem;
+}
+.panel-placeholder .big-icon { font-size: 3rem; opacity: .2; }
+.panel-placeholder p { font-size: .8rem; line-height: 1.6; }
+
+/* Custom video controls */
+.video-controls {
+  display: none;
+  align-items: center; gap: .6rem;
+  padding: .45rem .75rem;
+  background: rgba(5,10,20,.85);
+  border-top: 1px solid var(--border);
+  width: 100%;
+  border-radius: 0 0 9px 9px;
+}
+.video-controls.show { display: flex; }
+.vc-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--accent); font-size: 1rem; line-height: 1;
+  padding: .15rem .3rem; transition: opacity .2s;
+}
+.vc-btn:hover { opacity: .7; }
+.vc-progress {
+  flex: 1; height: 4px; background: var(--surface2);
+  border-radius: 2px; cursor: pointer; position: relative;
+}
+.vc-progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 2px; width: 0%;
+  pointer-events: none;
+}
+.vc-time { font-size: .68rem; color: var(--muted); font-family: monospace; white-space: nowrap; }
+.vc-vol-btn { background:none; border:none; cursor:pointer; color: var(--muted); font-size: .9rem; padding:.1rem; }
+.vc-vol-btn:hover { color: var(--accent); }
+
+.overlay-alert {
+  position: absolute; top: .75rem; left: 50%; transform: translateX(-50%);
+  background: rgba(255,59,92,.9); color: #fff;
+  padding: .4rem 1.2rem; border-radius: 6px;
+  font-family: var(--font-head); font-weight: 700; font-size: .85rem;
+  display: none; white-space: nowrap; z-index: 10;
+  animation: slideDown .3s ease;
+}
+@keyframes slideDown { from{transform:translateX(-50%) translateY(-10px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+
+.progress-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-top: .75rem; display: none; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; width: 0%; transition: width .3s; }
+{% endblock %}
+
+{% block content %}
+<div class="dash-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-header">Detection Dashboard</div>
+      <div class="sidebar-sub">Welcome, <strong>{{ user }}</strong></div>
+    </div>
+
+    <div>
+      <div class="conf-label" style="margin-bottom:.75rem;">Input Mode</div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="video" onclick="setMode('video',this)">🎬 Video</button>
+        <button class="mode-tab" data-mode="image" onclick="setMode('image',this)">🖼 Image</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="conf-label" style="margin-bottom:.75rem;">Upload File</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📂</div>
+        <div class="upload-text"><strong>Click to browse</strong><br>or drag & drop here</div>
+        <div class="upload-accept" id="acceptHint">MP4 · AVI · MOV · MKV</div>
+      </div>
+      <input type="file" id="fileInput" style="display:none" accept="video/*" onchange="handleFile(this.files[0])">
+      <div class="file-info" id="fileInfo">
+        <div class="file-thumb" id="fileThumb">🎬</div>
+        <div><div class="file-name" id="fileName">—</div><div class="file-size" id="fileSize">—</div></div>
+      </div>
+      <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+    </div>
+
+    <div>
+      <div class="conf-row">
+        <div class="conf-label">Confidence Threshold</div>
+        <div class="conf-val" id="confVal">0.40</div>
+      </div>
+      <input type="range" min="1" max="99" value="40" id="confSlider" oninput="updateConf(this.value)">
+    </div>
+
+    <button class="btn btn-primary btn-full" id="runBtn" onclick="runDetection()" disabled>
+      ▶ Run Detection
+    </button>
+    <button class="btn btn-outline btn-full btn-sm" id="stopBtn" onclick="stopDetection()" style="display:none">
+      ⏹ Stop
+    </button>
+
+    <div>
+      <div class="conf-label" style="margin-bottom:.75rem;">Session Stats</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-box-val" id="statFrames">0</div>
+          <div class="stat-box-label">Frames</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val danger" id="statAlerts">0</div>
+          <div class="stat-box-label">Alerts</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val green" id="statFps">—</div>
+          <div class="stat-box-label">FPS</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-val" id="statStatus">Idle</div>
+          <div class="stat-box-label">Status</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="conf-label" style="margin-bottom:.75rem;">Event Log</div>
+      <div class="log-box" id="logBox">
+        <div class="log-entry info">[system] LaneVision ready.</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main Canvas ── -->
+  <main class="main-canvas">
+    <div class="canvas-toolbar">
+      <div class="toolbar-title">Live Preview</div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.6rem;">
+        <div class="status-label" id="statusLabel">Idle</div>
+        <div class="status-dot" id="statusDot"></div>
+      </div>
+    </div>
+
+    <div class="video-pane-wrapper">
+
+      <!-- Panel column labels (shown when video loaded) -->
+      <div class="pane-labels" id="paneLabels">
+        <div class="pane-label original"><div class="dot"></div>Original Upload</div>
+        <div class="pane-label processed"><div class="dot"></div>Lane Detection Output</div>
+      </div>
+
+      <div class="dual-pane" id="dualPane">
+
+        <!-- LEFT: Original uploaded video -->
+        <div class="video-panel panel-original" id="panelOriginal">
+          <div class="panel-placeholder" id="placeholderOriginal">
+            <div class="big-icon">📹</div>
+            <p>Original video will<br>appear here after upload</p>
+          </div>
+          <video id="originalVideo" playsinline></video>
+          <div class="video-controls" id="videoControls">
+            <button class="vc-btn" id="playPauseBtn" onclick="togglePlayPause()">▶</button>
+            <div class="vc-progress" id="vcProgress" onclick="seekVideo(event)">
+              <div class="vc-progress-fill" id="vcFill"></div>
+            </div>
+            <div class="vc-time" id="vcTime">0:00 / 0:00</div>
+            <button class="vc-vol-btn" onclick="toggleMute()" id="muteBtn">🔊</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: Processed stream / image result -->
+        <div class="video-panel panel-processed" id="panelProcessed">
+          <div class="panel-placeholder" id="placeholderProcessed">
+            <div class="big-icon">🛣</div>
+            <p>Click <em>Run Detection</em> to<br>start lane analysis</p>
+          </div>
+          <img id="videoStream" alt="Video stream">
+          <img id="imageResult" alt="Processed image">
+          <div class="overlay-alert" id="overlayAlert">⚠ LANE CROSSING ALERT!</div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let currentMode  = 'video';
+  let uploadedFile = null;
+  let running      = false;
+  let frameCount   = 0;
+  let alertCount   = 0;
+  let fpsTimer     = null;
+  let fpsFrames    = 0;
+  let fpsStart     = null;
+  let progressTmr  = null;
+
+  const origVideo = document.getElementById('originalVideo');
+
+  // ── Mode toggle ──
+  function setMode(mode, el) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('acceptHint').textContent =
+      mode === 'video' ? 'MP4 · AVI · MOV · MKV' : 'JPG · JPEG · PNG';
+    document.getElementById('fileInput').accept = mode === 'video' ? 'video/*' : 'image/*';
+    document.getElementById('dualPane').classList.toggle('image-mode', mode === 'image');
+    resetPanels();
+    uploadedFile = null;
+    document.getElementById('fileInfo').classList.remove('show');
+    document.getElementById('runBtn').disabled = true;
+    log('info', `Mode switched to ${mode}`);
+  }
+
+  function resetPanels() {
+    document.getElementById('paneLabels').classList.remove('show');
+    origVideo.pause(); origVideo.src = '';
+    origVideo.style.display = 'none';
+    document.getElementById('placeholderOriginal').style.display = 'flex';
+    document.getElementById('videoControls').classList.remove('show');
+    const vs = document.getElementById('videoStream');
+    vs.src = ''; vs.style.display = 'none';
+    const ir = document.getElementById('imageResult');
+    ir.src = ''; ir.style.display = 'none';
+    document.getElementById('placeholderProcessed').style.display = 'flex';
+    document.getElementById('overlayAlert').style.display = 'none';
+  }
+
+  // ── Drag & Drop ──
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  // ── File selection ──
+  function handleFile(file) {
+    if (!file) return;
+    uploadedFile = file;
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = formatBytes(file.size);
+    document.getElementById('fileThumb').textContent = currentMode === 'video' ? '🎬' : '🖼';
+    document.getElementById('fileInfo').classList.add('show');
+    document.getElementById('runBtn').disabled = false;
+
+    if (currentMode === 'video') {
+      // Immediately show original video in the left panel using object URL
+      const objectURL = URL.createObjectURL(file);
+      origVideo.src = objectURL;
+      origVideo.style.display = 'block';
+      document.getElementById('placeholderOriginal').style.display = 'none';
+      document.getElementById('videoControls').classList.add('show');
+      document.getElementById('paneLabels').classList.add('show');
+      origVideo.load();
+      log('ok', `File loaded: ${file.name} — original preview ready`);
+    } else {
+      log('ok', `File loaded: ${file.name}`);
+    }
+  }
+
+  function formatBytes(b) {
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+  }
+
+  // ── Custom video player controls ──
+  origVideo.addEventListener('timeupdate', () => {
+    if (!origVideo.duration) return;
+    const pct = (origVideo.currentTime / origVideo.duration) * 100;
+    document.getElementById('vcFill').style.width = pct + '%';
+    document.getElementById('vcTime').textContent =
+      fmtTime(origVideo.currentTime) + ' / ' + fmtTime(origVideo.duration);
+  });
+  origVideo.addEventListener('play',  () => { document.getElementById('playPauseBtn').textContent = '⏸'; });
+  origVideo.addEventListener('pause', () => { document.getElementById('playPauseBtn').textContent = '▶'; });
+  origVideo.addEventListener('ended', () => { document.getElementById('playPauseBtn').textContent = '▶'; });
+
+  function togglePlayPause() {
+    if (origVideo.paused) origVideo.play(); else origVideo.pause();
+  }
+  function toggleMute() {
+    origVideo.muted = !origVideo.muted;
+    document.getElementById('muteBtn').textContent = origVideo.muted ? '🔇' : '🔊';
+  }
+  function seekVideo(e) {
+    const bar = document.getElementById('vcProgress');
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (origVideo.duration) origVideo.currentTime = pct * origVideo.duration;
+  }
+  function fmtTime(s) {
+    if (isNaN(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    return m + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+  }
+
+  // ── Confidence slider ──
+  function updateConf(v) {
+    document.getElementById('confVal').textContent = (v/100).toFixed(2);
+  }
+
+  // ── Log helper ──
+  function log(type, msg) {
+    const box = document.getElementById('logBox');
+    const now = new Date().toLocaleTimeString();
+    const div = document.createElement('div');
+    div.className = `log-entry ${type}`;
+    div.textContent = `[${now}] ${msg}`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ── Status ──
+  function setStatus(label, dot) {
+    document.getElementById('statusLabel').textContent = label;
+    document.getElementById('statStatus').textContent  = label;
+    document.getElementById('statusDot').className = 'status-dot' + (dot ? ' ' + dot : '');
+  }
+
+  // ── Run Detection ──
+  async function runDetection() {
+    if (!uploadedFile || running) return;
+    const formData = new FormData();
+    formData.append('file', uploadedFile);
+
+    setStatus('Uploading…', '');
+    showProgress(true);
+    const res  = await fetch('/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    showProgress(false);
+
+    if (!res.ok || data.error) { log('warn', 'Upload failed: ' + (data.error || 'unknown')); return; }
+    log('ok', `Uploaded: ${data.filename}`);
+
+    if (currentMode === 'video') runVideo(data.filename);
+    else runImage();
+  }
+
+  function runVideo(filename) {
+    running = true;
+    document.getElementById('runBtn').style.display  = 'none';
+    document.getElementById('stopBtn').style.display = '';
+    setStatus('Running', 'active');
+
+    // Ensure labels are visible
+    document.getElementById('paneLabels').classList.add('show');
+
+    // Play original video
+    origVideo.currentTime = 0;
+    origVideo.play().catch(() => {});
+
+    // Start processed stream on the right
+    document.getElementById('placeholderProcessed').style.display = 'none';
+    const img = document.getElementById('videoStream');
+    img.style.display = 'block';
+    img.src = `/process_video/${filename}?t=${Date.now()}`;
+
+    frameCount = 0; fpsFrames = 0; fpsStart = Date.now();
+    fpsTimer = setInterval(() => {
+      const elapsed = (Date.now() - fpsStart) / 1000;
+      if (elapsed > 0) document.getElementById('statFps').textContent = Math.round(fpsFrames / elapsed);
+      fpsFrames = 0; fpsStart = Date.now();
+    }, 1000);
+
+    img.onload  = () => { frameCount++; fpsFrames++; document.getElementById('statFrames').textContent = frameCount; };
+    img.onerror = () => { log('info', 'Stream ended.'); stopDetection(); };
+    log('info', 'Video stream started — original (left) + processed (right).');
+  }
+
+  async function runImage() {
+    const formData = new FormData();
+    formData.append('file', uploadedFile);
+    setStatus('Processing…', 'active');
+    try {
+      const res  = await fetch('/process_image', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.error) { log('warn', data.error); setStatus('Error', ''); return; }
+      document.getElementById('placeholderProcessed').style.display = 'none';
+      const ir = document.getElementById('imageResult');
+      ir.style.display = 'block';
+      ir.src = `data:image/jpeg;base64,${data.image}`;
+      document.getElementById('statFrames').textContent = 1;
+      if (data.alert) {
+        alertCount++;
+        document.getElementById('statAlerts').textContent = alertCount;
+        showOverlayAlert();
+        log('warn', 'LANE CROSSING ALERT detected!');
+      } else {
+        log('ok', 'Image processed. No lane violations.');
+      }
+      setStatus('Done', 'active');
+    } catch(e) { log('warn', 'Processing failed.'); setStatus('Error', ''); }
+  }
+
+  function stopDetection() {
+    running = false;
+    clearInterval(fpsTimer);
+    origVideo.pause();
+    const img = document.getElementById('videoStream');
+    img.src = ''; img.style.display = 'none';
+    document.getElementById('placeholderProcessed').style.display = 'flex';
+    document.getElementById('runBtn').style.display  = '';
+    document.getElementById('stopBtn').style.display = 'none';
+    setStatus('Stopped', '');
+    log('info', 'Detection stopped.');
+  }
+
+  function showOverlayAlert() {
+    const el = document.getElementById('overlayAlert');
+    el.style.display = 'block';
+    document.getElementById('statusDot').className = 'status-dot alert';
+    alertCount++;
+    document.getElementById('statAlerts').textContent = alertCount;
+    setTimeout(() => {
+      el.style.display = 'none';
+      if (running) document.getElementById('statusDot').className = 'status-dot active';
+    }, 2500);
+  }
+
+  function showProgress(show) {
+    document.getElementById('progressWrap').style.display = show ? 'block' : 'none';
+    if (show) {
+      let w = 0;
+      progressTmr = setInterval(() => {
+        w = Math.min(w + Math.random() * 15, 90);
+        document.getElementById('progressBar').style.width = w + '%';
+        if (w >= 90) clearInterval(progressTmr);
+      }, 150);
+    } else {
+      clearInterval(progressTmr);
+      document.getElementById('progressBar').style.width = '100%';
+      setTimeout(() => {
+        document.getElementById('progressBar').style.width = '0%';
+        document.getElementById('progressWrap').style.display = 'none';
+      }, 400);
+    }
+  }
+</script>
+{% endblock %}

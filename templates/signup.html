@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — LaneVision AI{% endblock %}
+
+{% block extra_styles %}
+.auth-wrap {
+  min-height: calc(100vh - 64px);
+  display: grid; grid-template-columns: 1fr 1fr;
+}
+.auth-visual {
+  position: relative;
+  background: linear-gradient(135deg, #050a0f 0%, #071525 100%);
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: flex-start;
+  padding: 5rem;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+.auth-visual::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 60% at 80% 50%, rgba(0,255,157,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 20% 80%, rgba(0,200,255,0.06) 0%, transparent 70%);
+}
+.road-svg { position: absolute; bottom: 0; left: 0; right: 0; opacity: .35; }
+.auth-visual-content { position: relative; z-index: 1; }
+.auth-visual h1 {
+  font-family: var(--font-head); font-size: 3.2rem; font-weight: 800;
+  line-height: 1.05; letter-spacing: -1.5px; margin-bottom: 1.2rem;
+}
+.auth-visual h1 em { font-style: normal; color: var(--accent2); }
+.auth-visual p { color: var(--muted); font-size: 1rem; max-width: 380px; line-height: 1.7; }
+.feature-list { margin-top: 2.5rem; display: flex; flex-direction: column; gap: .9rem; }
+.feature-item {
+  display: flex; align-items: center; gap: .75rem;
+  font-size: .88rem; color: var(--text);
+}
+.feature-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: rgba(0,255,157,0.12); border: 1px solid rgba(0,255,157,0.2);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-size: .85rem;
+}
+
+.auth-form-side {
+  display: flex; align-items: center; justify-content: center;
+  padding: 3rem 4rem;
+}
+.auth-box { width: 100%; max-width: 440px; }
+.auth-box .eyebrow {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--accent2); font-weight: 700; margin-bottom: 1.2rem;
+}
+.auth-box h2 {
+  font-family: var(--font-head); font-size: 2.2rem; font-weight: 800;
+  letter-spacing: -1px; margin-bottom: .5rem;
+}
+.auth-box .sub { color: var(--muted); font-size: .9rem; margin-bottom: 2.5rem; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.divider { height: 1px; background: var(--border); margin: 1.8rem 0; }
+.auth-footer { text-align: center; font-size: .85rem; color: var(--muted); }
+.auth-footer a { color: var(--accent2); text-decoration: none; font-weight: 600; }
+.btn-full { width: 100%; justify-content: center; padding: 1rem; }
+.btn-green {
+  background: linear-gradient(135deg, var(--accent2) 0%, #00a06a 100%);
+  color: var(--bg); box-shadow: 0 4px 20px rgba(0,255,157,0.3);
+}
+.btn-green:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,255,157,0.45); }
+
+.password-hint { font-size: .75rem; color: var(--muted); margin-top: .4rem; }
+
+@keyframes dashMove { to { stroke-dashoffset: -80; } }
+.lane-anim { animation: dashMove 2s linear infinite; }
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+
+  <!-- Visual Side -->
+  <div class="auth-visual">
+    <div class="auth-visual-content">
+      <span class="tag" style="margin-bottom:1.5rem; border-color:rgba(0,255,157,.3); color:var(--accent2);">Free to use</span>
+      <h1>Start Detecting<br><em>Smarter</em><br>Today</h1>
+      <p>Join hundreds of researchers and engineers using LaneVision to build safer autonomous systems.</p>
+      <div class="feature-list">
+        <div class="feature-item"><div class="feature-icon">🛣</div>CNN-based lane line detection</div>
+        <div class="feature-item"><div class="feature-icon">🎯</div>YOLOv11 object detection</div>
+        <div class="feature-item"><div class="feature-icon">⚡</div>Real-time video & image processing</div>
+        <div class="feature-item"><div class="feature-icon">🚨</div>Lane crossing alert system</div>
+      </div>
+    </div>
+    <svg class="road-svg" viewBox="0 0 600 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 220 L200 80 L400 80 L600 220" stroke="rgba(0,255,157,0.4)" stroke-width="2" fill="none"/>
+      <path d="M0 220 L160 80" stroke="rgba(0,200,255,0.25)" stroke-width="1.5" stroke-dasharray="10 6" fill="none" class="lane-anim"/>
+      <path d="M600 220 L440 80" stroke="rgba(0,200,255,0.25)" stroke-width="1.5" stroke-dasharray="10 6" fill="none" class="lane-anim"/>
+    </svg>
+  </div>
+
+  <!-- Form Side -->
+  <div class="auth-form-side">
+    <div class="auth-box">
+      <div class="eyebrow">Create account</div>
+      <h2>Join<br>LaneVision</h2>
+      <p class="sub">Set up your free account in seconds.</p>
+
+      {% if error %}
+      <div class="alert alert-danger">⚠ {{ error }}</div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('signup') }}">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" name="username" placeholder="choose_a_username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" name="email" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" name="password" placeholder="••••••••" required autocomplete="new-password">
+            <div class="password-hint">Min 6 characters</div>
+          </div>
+          <div class="form-group">
+            <label>Confirm</label>
+            <input type="password" name="confirm" placeholder="••••••••" required autocomplete="new-password">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-green btn-full">
+          Create Account →
+        </button>
+      </form>
+
+      <div class="divider"></div>
+      <div class="auth-footer">
+        Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
