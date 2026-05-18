@@ -1,6 +1,6 @@
 # LaneVision AI — Flask Web App
 
-CNN-based lane detection + YOLOv11 object detection served as a full web application.
+Open CV lane detection + YOLOv11 object detection served as a full web application.
 
 ## Project Structure
 ```
@@ -35,7 +35,7 @@ Visit **http://localhost:5000** — you'll be redirected to the login page.
 
 ## Features
 - ✅ Signup / Login with hashed passwords (werkzeug)
-- ✅ CNN lane detection (Canny + Hough lines)
+- ✅ opencv(Canny + Hough lines)
 - ✅ YOLOv11 object detection via Ultralytics
 - ✅ Lane crossing alert logic
 - ✅ Live MJPEG video streaming endpoint (`/process_video/<filename>`)
@@ -51,3 +51,9 @@ The app works fine without `best.pt` — lane lines will still be drawn but no b
 - Replace the in-memory `users.json` store with SQLite / PostgreSQL for production.
 - Set a strong `SECRET_KEY` in `app.py`.
 - Use gunicorn: `gunicorn -w 1 app:app` (single worker required for video streaming).
+
+If you would like to check the output of this project, please click the link below.
+https://lane-detection-and-object-detection-1.onrender.com
+After opening the link, create an account and log in.
+Then upload the video file.
+The processing may take a few minutes after the upload is completed.
